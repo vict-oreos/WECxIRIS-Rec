@@ -10,15 +10,15 @@
 using namespace std;
 
 
-#define PORT 8080// clients have to connect to server's listening port, can be any number above 1024 since 0 to 1024 are Well Known Ports and requires admin privilege to use. In this case, we use 3333 which will be an ephemeral port
+#define PORT 8080 // clients have to connect to server's listening port, can be any number above 1024 since 0 to 1024 are Well Known Ports and requires admin privilege to use. In this case, we use 8080 which will be an ephemeral port
 
 
 // So for P and G, in an irl scenario we would need a massive number to make it nearly impossible for a computer to brute force their way into finding the possible private keys and since this has to be a working model, I have chosen these numbers
 const uint64_t P = 0xFFFFFFFFFFFFFFC5ULL; //  large prime apparently
-const uint64_t G = 5ULL;//generator
+const uint64_t G = 5ULL; //generator
 
 
-//calculations for Diffie Hellman especially since we are dealing with huge numbers we need to ensure they dont overflow so all the math for tht is handled in the next two functions
+//calculations for Diffie Hellman especially since we are dealing with huge numbers we need to ensure they dont overflow so all the math for that is handled in the next two functions
 uint64_t mul_mod(uint64_t a, uint64_t b, uint64_t mod) {
     uint64_t result = 0;
     a %= mod;
@@ -49,13 +49,13 @@ uint64_t power(uint64_t base, uint64_t exp, uint64_t mod) {
     return res;
 }
 
-// KDF also know as Key Derivation Function. uses cryptographic mixing rounds instead of truncation as mentioned in task readme. Truncation usually just refers to cutting the scret key into two and one part if encryption key and the other becomes mac key
+// KDF also know as Key Derivation Function. uses cryptographic mixing rounds instead of truncation as mentioned in task readme. Truncation usually just refers to cutting the secret key into two and one part is encryption key and the other becomes mac key
 void derive_keys(uint64_t key, uint64_t& enc_key, uint64_t& mac_key) {
     uint64_t z1 = key + 0x9e3779b97f4a7c15ULL;// the constant introduced is a golden ratio constant that will eliminate any patterns that may exist in the secret key
-    z1 = (z1 ^ (z1 >> 30)) * 0xbf58476d1ce4e5b9ULL;// randomising it as much as possible, multiplied with a prime number to make it non linear and then the bitwise operations to introduce diffusion 
+    z1 = (z1 ^ (z1 >> 30)) * 0xbf58476d1ce4e5b9ULL;// randomising it as much as possible, multiplied with a prime number to make it non linear and then the bitwise operations to introduce diffusion making it harder for attackers to reverse engineer the keys
     z1 = (z1 ^ (z1 >> 27)) * 0x94d049bb133111ebULL;
     enc_key = z1 ^ (z1 >> 31);
-    uint64_t z2 = key + 0x9e3779b97f4a7c15ULL + 0x517cc1b727220295ULL;// here we use salting to ensure that enc_key and mac_key are independent of each other 
+    uint64_t z2 = key + 0x9e3779b97f4a7c15ULL + 0x517cc1b727220295ULL;// here we use salting to ensure that enc_key and mac_key are independent of each other so even if one is compromised the only is secure so basically how this done is by adding an independent constant to the initial value
     z2 = (z2 ^ (z2 >> 30)) * 0xbf58476d1ce4e5b9ULL;
     z2 = (z2 ^ (z2 >> 27)) * 0x94d049bb133111ebULL;
     mac_key = z2 ^ (z2 >> 31);
@@ -63,19 +63,19 @@ void derive_keys(uint64_t key, uint64_t& enc_key, uint64_t& mac_key) {
 
 // computing message authentication code for transcript verification
 uint64_t compute_mac(const string& transcript, uint64_t mac_key) {
-    uint64_t hash = 14695981039346656037ULL; // FNV offset basis
+    uint64_t hash = 14695981039346656037ULL; // FNV offset basis (fnv is a non cryptographic hash function
     for (char c : transcript) {
         hash ^= static_cast<uint8_t>(c);
         hash *= 1099511628211ULL; // FNV prime
     }
     // mix 
-    uint64_t combined = hash ^ mac_key;
+    uint64_t combined = hash ^ mac_key; // mixing with the mac_key
     combined += 0x9e3779b97f4a7c15ULL;
     combined = (combined ^ (combined >> 30)) * 0xbf58476d1ce4e5b9ULL;
     return combined;
 }
 
-// we are using a CTR (counter mode-symmetric key encryption mode). this creates a cipher by encrypting counter values and then xoring them with the plaintext (uses nonce as per the bonus)
+// we are using a CTR (counter mode-symmetric key encryption mode). this creates a cipher by encrypting counter values and then xoring them with the plaintext (uses nonce as per the bonus so replay can be detected because of the sequence numbers aka nonce)
 string cipher_transform(const string& input, uint64_t enc_key, uint64_t seq) {
     std::string output = input;
     uint64_t state = enc_key ^ seq;
@@ -206,7 +206,7 @@ int main() {
     }
     //using the math and computing symmetric key
     uint64_t symm_key = power(b_pub_key, a_priv, P);
-    cout << "[DH Success] Secret key established on server:" << hex<< symm_key << "\n\n"; // // converting to hexadecimal format cuz it looks better and is more conventionally used didn't do that in prev implementation tho 
+    cout << "[DH Success] Secret key established on server:" << hex<< symm_key << "\n\n"; // // converting to hexadecimal format cuz it looks better and is more conventionally used didn't do that in level 2 implementation tho i changed it in level 3
 
 
     // LEVEL 3
@@ -252,7 +252,7 @@ int main() {
     atomic<bool> running(true);
     uint64_t recv_seq = 0;
     uint64_t send_seq = 0;
-    // background thread for receiving messages
+    // background thread for receiving messages (how they work is explained in the readme cuz i was running out of space here)
     thread receiver([client_sock, enc_key, mac_key, &running, &recv_seq]() {
         uint8_t type;
         string payload;
