@@ -1,6 +1,5 @@
 # WECxIRIS-Rec (Task 8: Networking)
 
-(im still working on this not final yet TT) 
 
 I'm writing the code for this on VS Code on Windows OS using C++ and g++ compiler. (unfortunately don't have a dual boot, just Ubuntu on VirtualBox and the resolution isn't great :/)
 
